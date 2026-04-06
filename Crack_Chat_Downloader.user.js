@@ -23,11 +23,11 @@
     };
 
     const SELECTORS = {
-        characterName: '.css-1xxjkkc, .css-mp89fs',
+        characterName: '.group\\/header .line-clamp-1.text-ellipsis',
         buttons: {
-            desktopInjectContainer: '.css-l8r172',
-            mobileSidePanel: '.css-wcaza0, .css-114eyt3',
-            mobileScrollContent: '.css-c82bbp'
+            // Tailwind 클래스명으로 타겟팅 (슬래시가 포함된 클래스명은 이스케이프 처리해야 돼)
+            desktopInjectContainer: '.group\\/header .flex.gap-3.items-center',
+            mobileInjectContainer: '.css-wcaza0, .css-114eyt3' // 모바일은 일단 냅두고 PC부터 돌아가나 확인해
         },
         panel: {
             overlay: '.downloader-panel-overlay',
@@ -632,11 +632,20 @@
         init() {
             this.libraryCache = {};
             this.injectStyles();
-            let observer = null; let injectionInterval = null;
-            const onInjectionSuccess = () => { if (observer) { observer.disconnect(); observer = null; } if (injectionInterval) { clearInterval(injectionInterval); injectionInterval = null; } console.log('[CCD] 버튼 주입 성공. 감시 작업을 중단합니다.'); };
-            observer = new MutationObserver(() => { if (!observer) return; if (document.querySelector('.ccd-btn-desktop, .ccd-btn-mobile')) { onInjectionSuccess(); return; } if (this.injectButton()) { onInjectionSuccess(); } });
+
+            // SPA 라우팅 및 React 리렌더링에 대응하기 위해 감시자를 계속 살려둔다.
+            // DOM이 변경될 때마다 버튼이 있는지 확인하고, 없으면 다시 주입함.
+            const observer = new MutationObserver(() => {
+                // injectButton() 내부에 이미 버튼 존재 여부를 체크하는 방어 로직이 있으니 무한 반복 걱정은 마.
+                this.injectButton();
+            });
+
             observer.observe(document.body, { childList: true, subtree: true });
-            injectionInterval = setInterval(() => { if (!injectionInterval) return; if (document.querySelector('.ccd-btn-desktop, .ccd-btn-mobile')) { onInjectionSuccess(); return; } if (this.injectButton()) { onInjectionSuccess(); } }, 1000);
+
+            // 혹시 모를 타이밍 이슈(Observer가 놓치는 경우)를 대비해 느슨한 인터벌 하나 걸어두는 것도 팁이야.
+            setInterval(() => {
+                this.injectButton();
+            }, 2000);
         },
         injectStyles() {
             GM_addStyle(`
